@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# TODO: use grep and sed to be able to pinpoint to the date structure in this note
+# grep: list all yyyy-mm-dd pattern
+# grep: toady line, target line and insert them to correct line number
+# or maybe using some pattern matching paste i found in sof
+readonly MEMO="$MEMO"
+readonly MEMO_TEMP="$MEMO_TEMP"
+readonly EDITOR="$EDITOR"
+
+yesterday_f=0
+memo_f=0
+
+while getopts "ym" flag; do
+    case "${flag}" in
+        y) 
+            yesterday_f=$((yesterday_f+1))
+
+            ;;
+        m) memo_f=1 ;;
+        *) ;;
+    esac
+done
+
+# all_date_headers="$(grep -nE "^## \[\[[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))\]\]$" $MEMO)"
+#
+# today="$(date +%Y-%m-%d)"
+# today_header="## \[\[${today}\]\]"
+# today_header_line="$(grep -n "^${today}$" ${MEMO} | cut -d : -f 1 | head -n 1)"
+
+date="$(date -d "${yesterday_f} days ago" +%Y-%m-%d)"
+date_header="## \[\[${date}\]\]"
+date_header_line=$(grep -n "^${date_header}$" ${MEMO} | cut -d : -f 1 | head -n 1)
+# check if there is a date header in the note. if not, insert it at line 3
+if [[ -z ${date_header_line} ]]; then
+    sed -i "5i\\${date_header}" ${MEMO}
+    date_header_line=5
+fi
+
+# if memo flag (-m) enable
+if [[ ${memo_f} -eq "1" ]]; then
+    # -e insert content from $MEMO_TEMP file to $MEMO
+    # -e insert new line
+    sed -i.bak -e "${date_header_line}r ${MEMO_TEMP}" -e "${date_header_line}a\\\\" ${MEMO}
+    # delete content inside $MEMO_TEMP
+    > ${MEMO_TEMP}
+fi
+
+# if no arg, open editor. else add memo from command line
+if [[ ${#} -eq "0" ]]; then
+    ${EDITOR} ${MEMO}
+else
+    shift $((OPTIND - 1))
+    sed -i.bak "${date_header_line}a\\${*}\\" ${MEMO}
+fi
