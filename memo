@@ -1,12 +1,20 @@
 #!/bin/bash
 
-# readonly MEMO="$MEMO"
-# readonly MEMO_TEMP="$MEMO_TEMP"
-readonly MEMO=$HOME"/dev/_repo/memo/sample/+memo.md"
-readonly MEMO_TEMP=$HOME"/dev/_repo/memo/sample/__memo__.org"
-readonly EDITOR="$EDITOR"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-# initialize flag
+# uncomment this if you want use env instead
+# MEMO="$MEMO" # must be set
+# MEMO_TEMP="$MEMO_TEMP" # if -t (--transfer) flag is enable
+# MEMO_BACKUP_DIR="$MEMO_BACKUP_DIR" # if -b (--backup) flag is enable
+# EDITOR="$EDITOR" # nvim, nano, notepad etc
+
+# default value
+MEMO=${MEMO:-${SCRIPT_DIR}/sample/memo.md}
+MEMO_TEMP=${MEMO_TEMP:-${SCRIPT_DIR}/sample/memo_temp.md}
+MEMO_BACKUP_DIR=${MEMO_BACKUP_DIR:-${SCRIPT_DIR}/sample/backup/}
+EDITOR=${EDITOR:-notepad}
+
+# initial flag
 transfer=false
 backup=false
 verbose=false
@@ -16,24 +24,35 @@ message=""
 inserted_line=""
 inserted_date_line=""
 
-# initialize/preparing $MEMO + loading date header.
-valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
-date_header_regex="^## \[\[${valid_date_regex}\]\]$"
-echo '## [[1000-10-10]]' >> ${MEMO} # this is so stupid
-
 updateHeader () {
     all_date_header="$(grep -nE "${date_header_regex}" $MEMO)" # load all header to $all_date_header
 }
 
-# create today h2 if it doens't exist
-updateHeader
+checkFileUsuable() {
+    if [ ! -e "$1" ]; then
+        echo "error: file $1 does not exist."
+        exit 1
+    elif [ ! -f "$1" ]; then
+        echo "error: file $1 exists but is not a regular file."
+    elif [ ! -r "$1" ]; then 
+        echo "error: file $1 exists but is not readable."
+    elif [ ! -w "$1" ]; then 
+        echo "error: file exists but is not writable."
+    fi
+}
 
-today="$(date +%Y-%m-%d)"
-today_regex="(([0-9]+):## \[\[${today}\]\])"
+
+if [ -z "${MEMO}" ]; then
+    echo "memo: \$MEMO is not set, you can set it inside \`memo\` script "
+    exit 1
+fi
+
+checkFileUsuable ${MEMO}
 
 # if only `memo` is entered, open editor
 if [[ ${#} -eq "0" ]]; then
     ${EDITOR} ${MEMO}
+    exit 0
 fi
 
 # prevent y and d flag overlapped
@@ -44,12 +63,24 @@ fi
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -h|--help)
+            echo "print help"
+            exit 0
+            ;;
         -t|--transfer)
+            checkFileUsuable ${MEMO_TEMP}
             transfer=true
             shift
             ;;
         -b|--backup)
             backup=true
+            if [[ -z ${MEMO_BACKUP_DIR} ]]; then
+                echo "error: \$MEMO_BACKUP_DIR is not set. you can set it inside \`memo\` script"
+                exit 1
+            elif [[ ! -d ${MEMO_BACKUP_DIR} ]]; then
+                echo "error: ${MEMO_BACKUP_DIR} does not exist."
+                exit 1
+            fi
             shift
             ;;
         -v|--verbose)
@@ -85,15 +116,9 @@ while [[ $# -gt 0 ]]; do
             if [[ -z $2 ]]; then
                 echo "error: -m require additional argv (message)"
                 exit 1
-            else
-                message="$2"
-                echo "$2"
             fi
+            message="$2"
             shift
-            shift
-            ;;
-        -h|--help)
-            echo "print help"
             shift
             ;;
         -*|--*)
@@ -107,6 +132,26 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# handle b flag, create a copy of $MEMO to $MEMO_BACKUP_DIR
+if [[ ${backup} == true ]]; then
+    memo_hiccup="$(basename ${MEMO%.*}).$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
+    memo_temp_hiccup="$(basename ${MEMO_TEMP%.*}).$(date +%Y%m%dt%H%M%S).${MEMO_TEMP##*.}.bak"
+    sed '' ${MEMO} > $MEMO_BACKUP_DIR/$memo_hiccup
+    sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup
+    ${verbose} && echo "memo: -b options: making backup of $MEMO and $MEMO_TEMP inside $MEMO_BACKUP_DIR directory"
+fi 
+
+# initialize/preparing $MEMO + loading date header.
+valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
+date_header_regex="^## \[\[${valid_date_regex}\]\]$"
+echo '## [[1000-10-10]]' >> ${MEMO} # this is so stupid
+
+# create today h2 if it doens't exist
+updateHeader
+
+today="$(date +%Y-%m-%d)"
+today_regex="(([0-9]+):## \[\[${today}\]\])"
 
 # make today if doesn't exist
 if [[ ! $all_date_header =~ $today_regex ]]; then
