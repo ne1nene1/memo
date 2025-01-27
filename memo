@@ -1,55 +1,157 @@
 #!/bin/bash
 
-# TODO: use grep and sed to be able to pinpoint to the date structure in this note
-# grep: list all yyyy-mm-dd pattern
-# grep: toady line, target line and insert them to correct line number
-# or maybe using some pattern matching paste i found in sof
-readonly MEMO="$MEMO"
-readonly MEMO_TEMP="$MEMO_TEMP"
+# readonly MEMO="$MEMO"
+# readonly MEMO_TEMP="$MEMO_TEMP"
+readonly MEMO=$HOME"/dev/_repo/memo/sample/+memo.md"
+readonly MEMO_TEMP=$HOME"/dev/_repo/memo/sample/__memo__.org"
 readonly EDITOR="$EDITOR"
 
-yesterday_f=0
-memo_f=0
+# initialize flag
+transfer=false
+backup=false
+verbose=false
+y_f=0
+date=""
+message=""
+inserted_line=""
+inserted_date_line=""
 
-while getopts "ym" flag; do
-    case "${flag}" in
-        y) 
-            yesterday_f=$((yesterday_f+1))
+# initialize/preparing $MEMO + loading date header.
+valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
+date_header_regex="^## \[\[${valid_date_regex}\]\]$"
+echo '## [[1000-10-10]]' >> ${MEMO} # this is so stupid
 
+updateHeader () {
+    all_date_header="$(grep -nE "${date_header_regex}" $MEMO)" # load all header to $all_date_header
+}
+
+# create today h2 if it doens't exist
+updateHeader
+
+today="$(date +%Y-%m-%d)"
+today_regex="(([0-9]+):## \[\[${today}\]\])"
+
+# if only `memo` is entered, open editor
+if [[ ${#} -eq "0" ]]; then
+    ${EDITOR} ${MEMO}
+fi
+
+# prevent y and d flag overlapped
+if [[ " $* " == *" -d "* || " $* " == *" --date "* && " $* " == *" -y"* ]]; then
+    echo "error: -d (or --date) is not compatible with -y. please pick one or another"
+    exit 1
+fi
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -t|--transfer)
+            transfer=true
+            shift
             ;;
-        m) memo_f=1 ;;
-        *) ;;
+        -b|--backup)
+            backup=true
+            shift
+            ;;
+        -v|--verbose)
+            verbose=true
+            shift
+            ;;
+        -[y]*|--yesterday) 
+            if [[ $2 =~ ^[0-9]+$ ]]; then
+                y_f=$2
+                shift
+            elif [[ $1 =~ -[y]* ]]; then
+                y_ff="$1"
+                y_f=$((${#y_ff}-1))
+            else
+                echo "error: -y require valid number"
+                exit 1
+            fi
+            shift
+            ;;
+        -d|--date)
+            if [[ -z $2 ]]; then
+                echo "error: -d require additional argv (date)"
+                exit 1
+            elif [[ ! $2 =~ $valid_date_regex  ]]; then
+                echo "error: -d require argv with valid date (yyyy-mm-dd) separate by dash (-)"
+                exit 1
+            fi
+            date="$2"
+            shift
+            shift
+            ;;
+        -m|--message)  
+            if [[ -z $2 ]]; then
+                echo "error: -m require additional argv (message)"
+                exit 1
+            else
+                message="$2"
+                echo "$2"
+            fi
+            shift
+            shift
+            ;;
+        -h|--help)
+            echo "print help"
+            shift
+            ;;
+        -*|--*)
+            echo "error: unknown option -$1"
+            exit 1
+            shift
+            ;;
+        *) 
+            message="${*}"
+            break
+            ;;
     esac
 done
 
-# all_date_headers="$(grep -nE "^## \[\[[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))\]\]$" $MEMO)"
-#
-# today="$(date +%Y-%m-%d)"
-# today_header="## \[\[${today}\]\]"
-# today_header_line="$(grep -n "^${today}$" ${MEMO} | cut -d : -f 1 | head -n 1)"
-
-date="$(date -d "${yesterday_f} days ago" +%Y-%m-%d)"
-date_header="## \[\[${date}\]\]"
-date_header_line=$(grep -n "^${date_header}$" ${MEMO} | cut -d : -f 1 | head -n 1)
-# check if there is a date header in the note. if not, insert it at line 3
-if [[ -z ${date_header_line} ]]; then
-    sed -i "5i\\${date_header}" ${MEMO}
-    date_header_line=5
+# make today if doesn't exist
+if [[ ! $all_date_header =~ $today_regex ]]; then
+    sed -i "4i\\\#\#\ [\[${today}\]\]\n" ${MEMO} # if today header is not found. insert it at 4 lines
+    updateHeader
+    ${verbose} && echo "memo: created today header since it doesn't exist"
 fi
 
-# if memo flag (-m) enable
-if [[ ${memo_f} -eq "1" ]]; then
-    # -e insert content from $MEMO_TEMP file to $MEMO
-    # -e insert new line
-    sed -i.bak -e "${date_header_line}r ${MEMO_TEMP}" -e "${date_header_line}a\\\\" ${MEMO}
-    # delete content inside $MEMO_TEMP
-    > ${MEMO_TEMP}
+# default $inserted_line is today
+inserted_line="$(echo "${all_date_header}" | grep -E "${today_regex}" | cut -d : -f 1 | head -n 1)"
+
+# handle y flag, get $inserted_line
+if [[ ! "${y_f}" == 0 ]]; then
+    for (( i = 0; i <= ${y_f}; i++)); do
+        date="$(date -d "$i days ago" +%Y-%m-%d)"
+        date_regex="(([0-9]+):## \[\[${date}\]\])"
+        if [[ ${all_date_header} =~ ${date_regex} ]]; then # check if date exist
+            inserted_date_line="$(echo "${all_date_header}" | grep "\#\# \[\[${date}\]\]" -A 1 | cut -d : -f 1 | tail -n 1)"
+        fi
+    done
+    date="$(date -d "${y_f} days ago" +%Y-%m-%d)"
+    date_regex="(([0-9]+):## \[\[${date}\]\])"
+    # inserted_date_line="$(echo "${all_date_header}" | grep "\#\# \[\[${today}\]\]" -A ${y_f} | cut -d : -f 1 | tail -n 1)" # i want to die
+    if [[ ! ${all_date_header} =~ ${date_regex} ]]; then
+        sed -i "${inserted_date_line}i\\\#\#\ [\[${date}\]\]\n" ${MEMO} # insert date
+        updateHeader
+        ${verbose} && echo "memo: -y option: memo has inserted \`${date}\` header since it doesn't exists."
+    fi
+    inserted_line="$(echo "${all_date_header}" | grep -E "${date_regex}" | cut -d : -f 1 | head -n 1)"
 fi
 
-# if no arg, open editor. else add memo from command line
-if [[ ${#} -eq "0" ]]; then
-    ${EDITOR} ${MEMO}
-else
-    shift $((OPTIND - 1))
-    sed -i.bak "${date_header_line}a\\${*}\\" ${MEMO}
+# handle d flag, get $inserted_line
+
+# handle t flag, inserted $MEMO_TEMP content to $MEMO on $inserted_line
+if [[ ${transfer} == "true" ]]; then
+    sed -i -e "${inserted_line}r ${MEMO_TEMP}" -e "${inserted_line}a\\\\" ${MEMO}
+    > ${MEMO_TEMP} # delete content inside $MEMO_TEMP
+    ${verbose} && echo "memo: insert content of ${MEMO_TEMP} to ${MEMO} on line ${inserted_line}"
 fi
+
+# inserted $message to $inserted_line
+if [[ -n ${message} && -n ${inserted_line} ]]; then
+    inserted_line=$((inserted_line+1))
+    sed -i "${inserted_line}i\\${message}" ${MEMO}
+    ${verbose} && echo "memo: insert \`${message}\` to \`${MEMO}\` on line \`${inserted_line}\`"
+fi
+
+sed  -i '$d' ${MEMO} # remove ## [[1000-10-10]], this is so stupid

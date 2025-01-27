@@ -1,0 +1,51 @@
+# memo
+---
+
+## [[2025-01-27]]
+this is not ral, am from __memo__
+very sad, only to be completely tempting to die
+am i real
+
+this is not real
+- im am origian
+
+
+## [[2025-01-26]]
+just kill a dragon with my team
+
+learned how to use fire spell, very hard to control.
+DONE: prepare for the big fight tomorrow
+today was fun
+
+## [[2025-01-25]]
+
+## [[2025-01-24]]
+this is not ral, am from __memo__
+very sad, only to be completely tempting to die
+am i real
+am i real
+TODO: follow along instruction in the magic book
+i just finish an assignment given by Mr.Pork
+i should start doing the assignment now.
+just finished a quest. the pay is meh.
+
+## [[2025-01-23]]
+this is not nice
+but it should be nice later
+
+## [[2025-01-22]]
+this is nice
+
+## [[2025-01-21]]
+
+## [[2025-01-20]]
+
+## [[2025-01-19]]
+
+## [[2025-01-18]]
+
+## [[2024-12-03]]
+
+## [[2024-10-29]]
+i wish you a merry chirstmas
+i wish you a merry chirstmas
