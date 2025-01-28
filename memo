@@ -13,6 +13,7 @@ transfer=false
 backup=false
 verbose=false
 y_f=0
+d_f=0
 date=""
 message=""
 inserted_line=""
@@ -39,6 +40,35 @@ checkFileUsuable() {
     fi
 }
 
+printHelp() {
+    echo "Usage: memo [OPTION] ... [MESSAGE] ..."
+    echo "Bash script to quickly write thing down"
+    echo "Example:"
+    echo "  \`memo\`"
+    echo "  \`memo hello world\`"
+    echo "  \`memo -m \"hello, world!!\"\`"
+    echo ""
+    echo "Variable:"
+    echo "  \$MEMO              file that memo will add message to target header" 
+    echo "  \$MEMO_TEMP         (optional, if -t OPTION is enable) file that its content will be add to target header of \$MEMO"
+    echo "                      its content will be erased as a result"
+    echo "  \$MEMO_BACKUP_DIR   (optional, if -b OPTION is enable) directory that memo will use as backup"
+    echo ""
+    echo "Option:"
+    echo "  -y, --yesterday     change target header from today to N days from today"
+    echo "  -d, --date          change target header to DATE header (in YYYY-MM-DD format)"
+    echo "  -m, --message       add message to target header"
+    echo "                      by default, any argument after all OPTION will be the added message"
+    echo "  -t, --tranfer       add message from \$MEMO_TEMP to \$MEMO to target header"
+    echo "                      the content inside \$MEMO_TEMP will be erased as a result"
+    echo "  -b, --backup        make a copy of both \$MEMO (and \$MEMO_TEMP if -t enable) to \$MEMO_BACKUP_DIR"
+    echo "                      the copy will be named with unique timestamp"
+    echo "  -v, --verbose       if enable, memo will print more log to stdout"
+    echo "  -h, --help          print this message"
+    echo ""
+    echo "If no insertion target is specified, the default insertion point will be under today header"
+    echo "If there are no OPTIONs or any message specified, memo will open \$MEMO in default \$EDITOR"
+}
 
 if [ -z "${MEMO}" ]; then
     echo "memo: \$MEMO is not set, you can set it inside \`memo\` script "
@@ -68,7 +98,7 @@ date_header_regex="^## \[\[${valid_date_regex}\]\]$"
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
-            echo "print help"
+            printHelp
             exit 0
             ;;
         -t|--transfer)
@@ -112,6 +142,7 @@ while [[ $# -gt 0 ]]; do
                 echo "error: -d require argv with valid date (yyyy-mm-dd) separate by dash (-)"
                 exit 1
             fi
+            d_f=1
             date="$2"
             shift
             shift
@@ -126,7 +157,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -*|--*)
-            echo "error: unknown option -$1"
+            echo "error: unknown option -$1. try \`memo -h (--help)\` for more information"
             exit 1
             shift
             ;;
@@ -142,10 +173,13 @@ ${verbose} && echo "memo: task started, do not open or edit ${MEMO} until the ta
 # handle b flag, create a copy of $MEMO to $MEMO_BACKUP_DIR
 if [[ ${backup} == true ]]; then
     memo_hiccup="$(basename ${MEMO%.*}).$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
-    memo_temp_hiccup="$(basename ${MEMO_TEMP%.*}).$(date +%Y%m%dt%H%M%S).${MEMO_TEMP##*.}.bak"
     sed '' ${MEMO} > $MEMO_BACKUP_DIR/$memo_hiccup
-    sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup
-    ${verbose} && echo "memo: -b options: making backup of $MEMO and $MEMO_TEMP inside $MEMO_BACKUP_DIR directory"
+    ${verbose} && echo "memo: -b options: making backup of $MEMO inside $MEMO_BACKUP_DIR directory"
+    if [[ ${transfer} == true ]]; then
+        memo_temp_hiccup="$(basename ${MEMO_TEMP%.*}).$(date +%Y%m%dt%H%M%S).${MEMO_TEMP##*.}.bak"
+        sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup
+        ${verbose} && echo "memo: -b options: making backup of $MEMO_TEMP inside $MEMO_BACKUP_DIR directory"
+    fi
 fi 
 echo '## [[1000-10-10]]' >> ${MEMO} # this is so stupid
 
@@ -168,8 +202,7 @@ inserted_line="$(echo "${all_date_header}" | grep -E "${today_regex}" | cut -d :
 ${verbose} && echo "memo: default \$inserted_line is line ${inserted_line}"
 
 # TODO make this reusable with d flag. this is a mess
-# handle y flag, get $inserted_line
-if [[ ! "${y_f}" == 0 ]]; then
+if [[ ! "${y_f}" == 0 ]]; then # handle y flag
     for (( i = 0; i <= ${y_f}; i++)); do
         date="$(date -d "$i days ago" +%Y-%m-%d)"
         date_regex="(([0-9]+):## \[\[${date}\]\])"
@@ -190,21 +223,19 @@ if [[ ! "${y_f}" == 0 ]]; then
     ${verbose} && echo "memo: -y options: current \$inserted_line is line ${inserted_line}"
 fi
 
-# handle d flag, get $inserted_line
-if [ -n ${date} ]; then
+# handle d flag, get inserted_line
+if [[ "${d_f}" == 1 ]]; then
     if [[ ${all_date_header} =~ ${date} ]]; then
         inserted_line="$(echo "${all_date_header}" | grep "${date}" -A 1 | cut -d : -f 1 | tail -n 1)"
         ${verbose} && echo "memo: -d option: memo has found insertion for target date at ${inserted_line}"
     else
         all_date_header="$(echo "${all_date_header}" | cut -d \[ -f 3 | cut -c -10 )"
         for i in $(echo "${all_date_header}" | fold -w10); do
-            echo "$i"
-            echo "${date}"
             if [[ "$i" < "${date}" ]]; then
                 updateHeader
                 inserted_date_line="$(echo "${all_date_header}" | grep "$i" | cut -d : -f 1 | tail -n 1)"
                 sed -i "${inserted_date_line}i\\\#\#\ [\[${date}\]\]\n" ${MEMO} # insert date
-                updateHeader
+                    updateHeader
                 break
             fi
         done
