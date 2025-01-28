@@ -2,17 +2,11 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-# uncomment this if you want use env instead
-# MEMO="$MEMO" # must be set
-# MEMO_TEMP="$MEMO_TEMP" # if -t (--transfer) flag is enable
-# MEMO_BACKUP_DIR="$MEMO_BACKUP_DIR" # if -b (--backup) flag is enable
-# EDITOR="$EDITOR" # nvim, nano, notepad etc
-
 # default value
-MEMO=${MEMO:-${SCRIPT_DIR}/sample/memo.md}
-MEMO_TEMP=${MEMO_TEMP:-${SCRIPT_DIR}/sample/memo_temp.md}
-MEMO_BACKUP_DIR=${MEMO_BACKUP_DIR:-${SCRIPT_DIR}/sample/backup/}
-EDITOR=${EDITOR:-notepad}
+MEMO=${MEMO:-${SCRIPT_DIR}/sample/memo.md} # must be set
+MEMO_TEMP=${MEMO_TEMP:-${SCRIPT_DIR}/sample/memo_temp.md} # if 0t flag is enable
+MEMO_BACKUP_DIR=${MEMO_BACKUP_DIR:-${SCRIPT_DIR}/sample/backup/} # if -b flag is enable
+EDITOR=${EDITOR:-notepad} # nvim, nano, notepad etc.
 
 # initial flag
 transfer=false
@@ -26,6 +20,7 @@ inserted_date_line=""
 
 updateHeader () {
     all_date_header="$(grep -nE "${date_header_regex}" $MEMO)" # load all header to $all_date_header
+    ${verbose} && echo "memo: updateHeader"
 }
 
 checkFileUsuable() {
@@ -34,10 +29,13 @@ checkFileUsuable() {
         exit 1
     elif [ ! -f "$1" ]; then
         echo "error: file $1 exists but is not a regular file."
+        exit 1
     elif [ ! -r "$1" ]; then 
         echo "error: file $1 exists but is not readable."
+        exit 1
     elif [ ! -w "$1" ]; then 
         echo "error: file exists but is not writable."
+        exit 1
     fi
 }
 
@@ -56,10 +54,16 @@ if [[ ${#} -eq "0" ]]; then
 fi
 
 # prevent y and d flag overlapped
-if [[ " $* " == *" -d "* || " $* " == *" --date "* && " $* " == *" -y"* ]]; then
-    echo "error: -d (or --date) is not compatible with -y. please pick one or another"
-    exit 1
+if [[ " $* " == *" -d "* || " $* " == *" --date "* ]]; then
+    if [[ " $* " == *" -y"* || " $* " == *" --yesterday "* ]]; then
+        echo "error: -d (or --date) is not compatible with -y. please pick one or another"
+        exit 1
+    fi
 fi
+
+# initialize/preparing $MEMO + loading date header.
+valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
+date_header_regex="^## \[\[${valid_date_regex}\]\]$"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -104,7 +108,7 @@ while [[ $# -gt 0 ]]; do
             if [[ -z $2 ]]; then
                 echo "error: -d require additional argv (date)"
                 exit 1
-            elif [[ ! $2 =~ $valid_date_regex  ]]; then
+            elif [[ ! $2 =~ $valid_date_regex ]]; then
                 echo "error: -d require argv with valid date (yyyy-mm-dd) separate by dash (-)"
                 exit 1
             fi
@@ -133,6 +137,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+${verbose} && echo "memo: task started, do not open or edit ${MEMO} until the task reaches the end"
+
 # handle b flag, create a copy of $MEMO to $MEMO_BACKUP_DIR
 if [[ ${backup} == true ]]; then
     memo_hiccup="$(basename ${MEMO%.*}).$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
@@ -141,10 +147,6 @@ if [[ ${backup} == true ]]; then
     sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup
     ${verbose} && echo "memo: -b options: making backup of $MEMO and $MEMO_TEMP inside $MEMO_BACKUP_DIR directory"
 fi 
-
-# initialize/preparing $MEMO + loading date header.
-valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
-date_header_regex="^## \[\[${valid_date_regex}\]\]$"
 echo '## [[1000-10-10]]' >> ${MEMO} # this is so stupid
 
 # create today h2 if it doens't exist
@@ -152,6 +154,7 @@ updateHeader
 
 today="$(date +%Y-%m-%d)"
 today_regex="(([0-9]+):## \[\[${today}\]\])"
+${verbose} && echo "memo: today is ${today}"
 
 # make today if doesn't exist
 if [[ ! $all_date_header =~ $today_regex ]]; then
@@ -162,14 +165,17 @@ fi
 
 # default $inserted_line is today
 inserted_line="$(echo "${all_date_header}" | grep -E "${today_regex}" | cut -d : -f 1 | head -n 1)"
+${verbose} && echo "memo: default \$inserted_line is line ${inserted_line}"
 
+# TODO make this reusable with d flag. this is a mess
 # handle y flag, get $inserted_line
 if [[ ! "${y_f}" == 0 ]]; then
     for (( i = 0; i <= ${y_f}; i++)); do
         date="$(date -d "$i days ago" +%Y-%m-%d)"
         date_regex="(([0-9]+):## \[\[${date}\]\])"
         if [[ ${all_date_header} =~ ${date_regex} ]]; then # check if date exist
-            inserted_date_line="$(echo "${all_date_header}" | grep "\#\# \[\[${date}\]\]" -A 1 | cut -d : -f 1 | tail -n 1)"
+            inserted_date_line="$(echo "${all_date_header}" | grep "${date}" -A 1 | cut -d : -f 1 | tail -n 1)"
+            ${verbose} && echo "memo: -y option: memo has found insertion for target date at ${inserted_date_line}"
         fi
     done
     date="$(date -d "${y_f} days ago" +%Y-%m-%d)"
@@ -181,9 +187,30 @@ if [[ ! "${y_f}" == 0 ]]; then
         ${verbose} && echo "memo: -y option: memo has inserted \`${date}\` header since it doesn't exists."
     fi
     inserted_line="$(echo "${all_date_header}" | grep -E "${date_regex}" | cut -d : -f 1 | head -n 1)"
+    ${verbose} && echo "memo: -y options: current \$inserted_line is line ${inserted_line}"
 fi
 
 # handle d flag, get $inserted_line
+if [ -n ${date} ]; then
+    if [[ ${all_date_header} =~ ${date} ]]; then
+        inserted_line="$(echo "${all_date_header}" | grep "${date}" -A 1 | cut -d : -f 1 | tail -n 1)"
+        ${verbose} && echo "memo: -d option: memo has found insertion for target date at ${inserted_line}"
+    else
+        all_date_header="$(echo "${all_date_header}" | cut -d \[ -f 3 | cut -c -10 )"
+        for i in $(echo "${all_date_header}" | fold -w10); do
+            echo "$i"
+            echo "${date}"
+            if [[ "$i" < "${date}" ]]; then
+                updateHeader
+                inserted_date_line="$(echo "${all_date_header}" | grep "$i" | cut -d : -f 1 | tail -n 1)"
+                sed -i "${inserted_date_line}i\\\#\#\ [\[${date}\]\]\n" ${MEMO} # insert date
+                updateHeader
+                break
+            fi
+        done
+    fi
+    inserted_line="$(echo "${all_date_header}" | grep "${date}" | cut -d : -f 1 | tail -n 1)"
+fi
 
 # handle t flag, inserted $MEMO_TEMP content to $MEMO on $inserted_line
 if [[ ${transfer} == "true" ]]; then
@@ -199,4 +226,5 @@ if [[ -n ${message} && -n ${inserted_line} ]]; then
     ${verbose} && echo "memo: insert \`${message}\` to \`${MEMO}\` on line \`${inserted_line}\`"
 fi
 
-sed  -i '$d' ${MEMO} # remove ## [[1000-10-10]], this is so stupid
+sed -i '$d' ${MEMO} # remove ## [[1000-10-10]], this is so stupid
+${verbose} && echo "memo: task reach the end, it is now safe to open ${MEMO}"
