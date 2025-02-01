@@ -3,10 +3,11 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # default value
-MEMO=${MEMO:-${SCRIPT_DIR}/sample/memo.md} # must be set
-MEMO_TEMP=${MEMO_TEMP:-${SCRIPT_DIR}/sample/memo_temp.md} # if 0t flag is enable
-MEMO_BACKUP_DIR=${MEMO_BACKUP_DIR:-${SCRIPT_DIR}/sample/backup/} # if -b flag is enable
-EDITOR=${EDITOR:-notepad} # nvim, nano, notepad etc.
+MEMO_DIR="${HOME}/.memo"
+MEMO=${MEMO:-"${MEMO_DIR}/memo.md"} # must be set
+MEMO_TEMP=${MEMO_TEMP:-"${MEMO_DIR}/memo_temp.md"} # if 0t flag is enable
+MEMO_BACKUP_DIR=${MEMO_BACKUP_DIR:-"${MEMO_DIR}/backup/"} # if -b flag is enable
+EDITOR=${EDITOR:-notepad} # vi, nvim, nano, notepad etc.
 
 # initial flag
 transfer=false
@@ -24,10 +25,24 @@ updateHeader () {
     ${verbose} && echo "memo: updateHeader"
 }
 
+checkDirUsuable() {
+    if [ ! -d "$1" ]; then
+        echo "memo: directory $1 does not exist"
+        mkdir "$1"
+        echo "memo: directory $1 has been created"
+    fi
+}
 checkFileUsuable() {
     if [ ! -e "$1" ]; then
-        echo "error: file $1 does not exist."
-        exit 1
+        echo "memo: file $1 does not exist."
+        touch "$1"
+        echo "memo: file $1 has been created"
+        if [ "$1" == ${MEMO} ]; then 
+            echo "# memo" >> "$1"
+            echo "---" >> "$1"
+            echo "" >> "$1"
+            echo "memo: file $1 has been initialized"
+        fi
     elif [ ! -f "$1" ]; then
         echo "error: file $1 exists but is not a regular file."
         exit 1
@@ -39,6 +54,10 @@ checkFileUsuable() {
         exit 1
     fi
 }
+
+# surroundWithHeader() {
+#     $2="## \[\[$2\]\]"
+# }
 
 printHelp() {
     echo "Usage: memo [OPTION] ... [MESSAGE] ..."
@@ -70,11 +89,7 @@ printHelp() {
     echo "If there are no OPTIONs or any message specified, memo will open \$MEMO in default \$EDITOR"
 }
 
-if [ -z "${MEMO}" ]; then
-    echo "memo: \$MEMO is not set, you can set it inside \`memo\` script "
-    exit 1
-fi
-
+checkDirUsuable ${MEMO_DIR}
 checkFileUsuable ${MEMO}
 
 # if only `memo` is entered, open editor
@@ -172,18 +187,17 @@ ${verbose} && echo "memo: task started, do not open or edit ${MEMO} until the ta
 
 # handle b flag, create a copy of $MEMO to $MEMO_BACKUP_DIR
 if [[ ${backup} == true ]]; then
-    memo_hiccup="$(basename ${MEMO%.*}).$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
+    memo_hiccup="$(basename ${MEMO%.*})_$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
     sed '' ${MEMO} > $MEMO_BACKUP_DIR/$memo_hiccup
-    ${verbose} && echo "memo: -b options: making backup of $MEMO inside $MEMO_BACKUP_DIR directory"
+    ${verbose} && echo "memo: -b options: copy content of $MEMO to $memo_hiccup inside $MEMO_BACKUP_DIR directory"
     if [[ ${transfer} == true ]]; then
         memo_temp_hiccup="$(basename ${MEMO_TEMP%.*}).$(date +%Y%m%dt%H%M%S).${MEMO_TEMP##*.}.bak"
         sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup
-        ${verbose} && echo "memo: -b options: making backup of $MEMO_TEMP inside $MEMO_BACKUP_DIR directory"
+        ${verbose} && echo "memo: -b options: copy content of $MEMO_TEMP to $memo_hiccup inside $MEMO_BACKUP_DIR directory"
     fi
 fi 
 echo '## [[1000-10-10]]' >> ${MEMO} # this is so stupid
 
-# create today h2 if it doens't exist
 updateHeader
 
 today="$(date +%Y-%m-%d)"
