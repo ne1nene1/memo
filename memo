@@ -120,7 +120,8 @@ get_insertion_line () {
             return
        fi
     done
-    echo -1
+    sed -i "\$a\\\n$(get_date_header $1)\n" ${MEMO}
+    get_insertion_line $1
 }
 
 
@@ -220,24 +221,25 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-${verbose} && echo "memo: task started, do not open or edit ${MEMO} until the task reaches the end"
 
-# handle b flag, create a copy of $MEMO to $MEMO_BACKUP_DIR
+# backup option
 if [[ ${backup} == true ]]; then
-    memo_hiccup="$(basename ${MEMO%.*})_$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
-    sed '' ${MEMO} > $MEMO_BACKUP_DIR/$memo_hiccup
+    # create a copy of $MEMO to $MEMO_BACKUP_DIR 
+    memo_hiccup_name="$(basename ${MEMO%.*})_$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
+    sed '' ${MEMO} > $MEMO_BACKUP_DIR/$memo_hiccup_name
     ${verbose} && echo "memo: -b options: copy content of $MEMO to $memo_hiccup inside $MEMO_BACKUP_DIR directory"
     if [[ ${transfer} == true ]]; then
-        memo_temp_hiccup="$(basename ${MEMO_TEMP%.*}).$(date +%Y%m%dt%H%M%S).${MEMO_TEMP##*.}.bak"
-        sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup
+        # create a copy of $MEMO_TEMP to $MEMO_BACKUP_DIR 
+        memo_temp_hiccup_name="$(basename ${MEMO_TEMP%.*}).$(date +%Y%m%dt%H%M%S).${MEMO_TEMP##*.}.bak"
+        sed '' ${MEMO_TEMP} > $MEMO_BACKUP_DIR/$memo_temp_hiccup_name
         ${verbose} && echo "memo: -b options: copy content of $MEMO_TEMP to $memo_hiccup inside $MEMO_BACKUP_DIR directory"
     fi
 fi 
 
+# find a insertion point, if not found, create one.
 [ -z $date ] && date=$today
 inserted_line=$(get_insertion_line $date)
 echo "$inserted_line"
-
 
 # handle t flag, inserted $MEMO_TEMP content to $MEMO on $inserted_line
 if [[ ${transfer} == "true" ]]; then
@@ -252,6 +254,3 @@ if [[ -n ${message} && -n ${inserted_line} ]]; then
     sed -i "${inserted_line}i\\${message}" ${MEMO}
     ${verbose} && echo "memo: insert \`${message}\` to \`${MEMO}\` on line \`${inserted_line}\`"
 fi
-
-sed -i '$d' ${MEMO} # remove ## [[1000-10-10]], this is so stupid
-${verbose} && echo "memo: task reach the end, it is now safe to open ${MEMO}"
