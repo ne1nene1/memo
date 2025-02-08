@@ -61,7 +61,6 @@ print_help() {
 
 update_header () {
     all_date_header=($(grep -nE "${date_header_regex}" $MEMO | tr -d "[]# "))
-    ${verbose} && echo "memo: update_header"
 }
 
 check_dir_usuable() {
@@ -96,11 +95,12 @@ check_file_usuable() {
 }
 
 # func: convertToDateHeader DATE
-# convert from DATE -> DATE_HEADER. eg 2025-01-01 -> ## [[2025-01-01]]
 get_date_header () {
     echo "## \[\[$1\]\]"
 }
 
+# func: get_insertion_line DATE
+# the core of this script
 get_insertion_line () {
     update_header
     local date_header="(([0-9]+):$1)"
@@ -160,14 +160,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -b|--backup)
+            check_dir_usuable ${MEMO_BACKUP_DIR}
             backup=true
-            if [[ -z ${MEMO_BACKUP_DIR} ]]; then
-                echo "error: \$MEMO_BACKUP_DIR is not set. you can set it inside \`memo\` script"
-                exit 1
-            elif [[ ! -d ${MEMO_BACKUP_DIR} ]]; then
-                echo "error: ${MEMO_BACKUP_DIR} does not exist."
-                exit 1
-            fi
             shift
             ;;
         -v|--verbose)
@@ -175,10 +169,10 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -[y]*|--yesterday) 
-            if [[ $2 =~ ^[0-9]+$ ]]; then
+            if [[ $2 =~ ^[0-9]+$ ]]; then # handle `-y N` case
                 y_f=$2
                 shift
-            elif [[ $1 =~ -[y]* ]]; then
+            elif [[ $1 =~ -[y]* ]]; then # handle `-yyy...y` case
                 y_ff="$1"
                 y_f=$((${#y_ff}-1))
             else
@@ -186,6 +180,9 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             date=$(date -d "$y_f days ago" +%Y-%m-%d)
+            if [[ $date =~ $valid_date_regex ]]; then
+                echo "error: $date is not in a valid date range"
+            fi
             shift
             ;;
         -d|--date)
@@ -193,7 +190,7 @@ while [[ $# -gt 0 ]]; do
                 echo "error: -d require additional argv (date)"
                 exit 1
             elif [[ ! $2 =~ $valid_date_regex ]]; then
-                echo "error: -d require argv with valid date (yyyy-mm-dd) separate by dash (-)"
+                echo "error: $2 is not in a valid date range"
                 exit 1
             fi
             date="$2"
@@ -236,19 +233,19 @@ if [[ ${backup} == true ]]; then
     fi
 fi 
 
-# find a insertion point, if not found, create one.
-[ -z $date ] && date=$today
+# find a insertion point. if not found, create one.
+date=${date:-${today}}
 inserted_line=$(get_insertion_line $date)
-echo "$inserted_line"
 
-# handle t flag, inserted $MEMO_TEMP content to $MEMO on $inserted_line
+# transfer options
 if [[ ${transfer} == "true" ]]; then
+    # inserted $MEMO_TEMP content to $MEMO on $inserted_line
     sed -i -e "${inserted_line}r ${MEMO_TEMP}" -e "${inserted_line}a\\\\" ${MEMO}
     > ${MEMO_TEMP} # delete content inside $MEMO_TEMP
-    ${verbose} && echo "memo: insert content of ${MEMO_TEMP} to ${MEMO} on line ${inserted_line}"
+    ${verbose} && echo "memo: insert content of \`${MEMO_TEMP}\` to \`${MEMO}\` on line \`${inserted_line}\`"
 fi
 
-# inserted $message to $inserted_line
+# finnally add message if user provided one
 if [[ -n ${message} && -n ${inserted_line} ]]; then
     inserted_line=$((inserted_line+1))
     sed -i "${inserted_line}i\\${message}" ${MEMO}
