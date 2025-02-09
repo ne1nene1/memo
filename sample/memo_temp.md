@@ -1,4 +1,4 @@
-this is not real
-i am from memo_temp
-very sad, only to be completely tempted to die
-am i real
+hi, i am in memo_temp.md file 
+i will be moved to memo.md once you type
+    memo -f
+see you there!!
