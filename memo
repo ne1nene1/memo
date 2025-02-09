@@ -19,9 +19,18 @@
 #     add message to memo about the next 30 days `memo -t 30 "i hate valentine"`
 #     add message to memo about the next 4 days `memo -tttt "has to walk a dog"`
 #
-#     transfer message from temporary memo to memo `memo -f`
+#     fetch message from temporary memo to memo `memo -f`
 #
 #     make a backup of memo (and memo_temp too, if -f flag is on) `memo -b`
+#
+# cautions:
+#     depending on your env, the content of message to be put using cli may not
+#     contain some special character reserved by your shell such as !," etc.
+#
+#     `-yy 3` will be intreprete as `three days ago (-y N format)` not 
+#     `two days ago (-yyy...y)`, this is also the same as -t flag.
+#     this means that if you ommited quote to insert a message, that message
+#     mustn't start with number
 #
 # please feel free to edit this script to your liking!
 
@@ -43,36 +52,37 @@ inserted_line=""
 # some constant
 valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
 today="$(date +%Y-%m-%d)"
+${verbose} && echo "memo: today date is \`$date\`"
 
 print_help() {
-    echo "Usage: memo [OPTION] ... [MESSAGE] ..."
-    echo "Bash script to quickly write thing down"
-    echo "Example:"
+    echo "memo: obtf (one big text file) style logging/journaling script"
+    echo "usage: memo [OPTION] [TARGET] ... [MESSAGE] ..."
+    echo "example:"
     echo "  \`memo\`"
     echo "  \`memo hello world\`"
     echo "  \`memo -m \"hello, world!!\"\`"
     echo ""
-    echo "Variable:"
+    echo "variable:"
     echo "  \$MEMO              file that memo will add message to target header" 
     echo "  \$MEMO_TEMP         (optional, if -t OPTION is enable) file that its content will be add to target header of \$MEMO"
     echo "                      its content will be erased as a result"
     echo "  \$MEMO_BACKUP_DIR   (optional, if -b OPTION is enable) directory that memo will use as backup"
     echo ""
-    echo "Option:"
+    echo "option:"
     echo "  -y, --yesterday     change target header to N days before today"
     echo "  -t, --tomorrow      change target header to N days after today"
     echo "  -d, --date          change target header to DATE header (in YYYY-MM-DD format)"
     echo "  -m, --message       add message to target header"
     echo "                      by default, any argument after all OPTION will be the added message"
-    echo "  -f, --fetch         add message from \$MEMO_TEMP to \$MEMO to target header"
+    echo "  -f, --fetch         fetch message from \$MEMO_TEMP to \$MEMO to target header"
     echo "                      the content inside \$MEMO_TEMP will be erased as a result"
     echo "  -b, --backup        make a copy of both \$MEMO (and \$MEMO_TEMP if -t enable) to \$MEMO_BACKUP_DIR"
     echo "                      the copy will be named with unique timestamp"
     echo "  -v, --verbose       if enable, memo will print more log to stdout"
-    echo "  -h, --help          print this message"
+    echo "  -h, --help          print this messages"
     echo ""
     echo "If no insertion target is specified, the default insertion point will be under today header"
-    echo "If there are no OPTIONs or any message specified, memo will open \$MEMO in default \$EDITOR"
+    echo "If there are no OPTIONs or any message specified, memo will open \$MEMO in a default \$EDITOR"
 }
 
 check_dir_usuable() {
@@ -288,7 +298,7 @@ if [[ ${transfer} == "true" ]]; then
     ${verbose} && echo "memo: insert content of \`${MEMO_TEMP}\` to \`${MEMO}\` on line \`${inserted_line}\`"
 fi
 
-# finnally add message if user provided one
+# finally add message if user provided one
 if [[ -n ${message} && -n ${inserted_line} ]]; then
     inserted_line=$((inserted_line+1))
     sed -i "${inserted_line}i\\${message}" ${MEMO}
