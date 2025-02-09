@@ -1,16 +1,29 @@
 #!/bin/bash
 
 # memo; obtf (one big text file) style logging/journaling script
-# credit: @ne1nene1 (Soulmine)
+# credit: Soulmine (@ne1nene1)
 #
 # install:
-#     `chmod +x memo` make file executable
-#     `mv memo /path/to/your/bin` move to you path or
-#     add `alias `
+#     make file executable `chmod +x memo` 
+#     move to you path `mv memo /path/to/your/bin` or
+#     add alias to your shell config 'alias memo="/path/to/this/script"'
 # usage:
-#     
+#     initialize memo `memo`
+#     open memo in editor `memo`
 #
-# please feel free to edit to your liking!
+#     add message to memo to today (-m can be ommited) `memo -m "hi earth"`
+#     add message to memo about yesterday `memo -y "hello world"`
+#     add message to memo about last week `memo -y 7 "i walked a dog"`
+#     add message to memo about 3 days before `memo -yyy "i hate monday"`
+#     add message to memo about tomorrow `memo -t "meeting with mom"`
+#     add message to memo about the next 30 days `memo -t 30 "i hate valentine"`
+#     add message to memo about the next 4 days `memo -tttt "has to walk a dog"`
+#
+#     transfer message from temporary memo to memo `memo -f`
+#
+#     make a backup of memo (and memo_temp too, if -f flag is on) `memo -b`
+#
+# please feel free to edit this script to your liking!
 
 # default value
 MEMO_DIR="${HOME}/.memo" # must be set, always
@@ -26,7 +39,10 @@ verbose=false
 date=""
 message=""
 inserted_line=""
-inserted_date_line=""
+
+# some constant
+valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
+today="$(date +%Y-%m-%d)"
 
 print_help() {
     echo "Usage: memo [OPTION] ... [MESSAGE] ..."
@@ -43,11 +59,12 @@ print_help() {
     echo "  \$MEMO_BACKUP_DIR   (optional, if -b OPTION is enable) directory that memo will use as backup"
     echo ""
     echo "Option:"
-    echo "  -y, --yesterday     change target header from today to N days from today"
+    echo "  -y, --yesterday     change target header to N days before today"
+    echo "  -t, --tomorrow      change target header to N days after today"
     echo "  -d, --date          change target header to DATE header (in YYYY-MM-DD format)"
     echo "  -m, --message       add message to target header"
     echo "                      by default, any argument after all OPTION will be the added message"
-    echo "  -t, --tranfer       add message from \$MEMO_TEMP to \$MEMO to target header"
+    echo "  -f, --fetch         add message from \$MEMO_TEMP to \$MEMO to target header"
     echo "                      the content inside \$MEMO_TEMP will be erased as a result"
     echo "  -b, --backup        make a copy of both \$MEMO (and \$MEMO_TEMP if -t enable) to \$MEMO_BACKUP_DIR"
     echo "                      the copy will be named with unique timestamp"
@@ -56,11 +73,6 @@ print_help() {
     echo ""
     echo "If no insertion target is specified, the default insertion point will be under today header"
     echo "If there are no OPTIONs or any message specified, memo will open \$MEMO in default \$EDITOR"
-}
-
-
-update_header () {
-    all_date_header=($(grep -nE "${date_header_regex}" $MEMO | tr -d "[]# "))
 }
 
 check_dir_usuable() {
@@ -94,15 +106,15 @@ check_file_usuable() {
     fi
 }
 
-# func: convertToDateHeader DATE
+# func: convertToDateHeader DATE -> formatted_DATE
 get_date_header () {
-    echo "## \[\[$1\]\]"
+    echo "## \[\[$1\]\]" # you can change this, not that i would rec
 }
 
-# func: get_insertion_line DATE
+# func: get_insertion_line DATE -> inserted_line
 # the core of this script
 get_insertion_line () {
-    update_header
+    all_date_header=($(grep -nE "${valid_date_header_regex}" $MEMO | tr -d "[]# "))
     local date_header="(([0-9]+):$1)"
     if [[ ${all_date_header[@]} =~ $date_header ]]; then
         echo $( echo "${BASH_REMATCH[0]}" | cut -d : -f 1)
@@ -125,12 +137,8 @@ get_insertion_line () {
 }
 
 
-valid_date_regex="[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))"
-date_header_regex="^$(get_date_header ${valid_date_regex})$"
-
-today="$(date +%Y-%m-%d)"
-${verbose} && echo "memo: today is ${today}"
-
+# =============================== MAIN ==================================== #
+# check file and dir, if doesn't exist, create it
 check_dir_usuable ${MEMO_DIR}
 check_file_usuable ${MEMO}
 
@@ -140,21 +148,27 @@ if [[ ${#} -eq "0" ]]; then
     exit 0
 fi
 
-# prevent y and d flag overlapped
+# a regex of valid header
+valid_date_header_regex="^$(get_date_header ${valid_date_regex})$"
+
+# prevent -d, -y, and -t clash
 if [[ " $* " == *" -d "* || " $* " == *" --date "* ]]; then
     if [[ " $* " == *" -y"* || " $* " == *" --yesterday "* ]]; then
-        echo "error: -d (or --date) is not compatible with -y. please pick one or another"
-        exit 1
+        if [[ " $* " == *" -t"* || " $* " == *" --tomorrow "* ]]; then
+            echo "error: -d, -y and -t are not compatible with each other"
+            exit 1
+        fi
     fi
 fi
 
+# read option from user
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
             print_help
-            exit 0
+            exit 1
             ;;
-        -t|--transfer)
+        -f|--fetch)
             check_file_usuable ${MEMO_TEMP}
             transfer=true
             shift
@@ -180,20 +194,48 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             date=$(date -d "$y_f days ago" +%Y-%m-%d)
-            if [[ $date =~ $valid_date_regex ]]; then
+            if [[ ! $date =~ $valid_date_regex ]]; then
                 echo "error: $date is not in a valid date range"
+                exit 1
+            elif [[ $date == -* ]]; then
+                echo "error: $date couldn't be negative value"
+                exit 1
+            fi
+            shift
+            ;;
+        -[t]*|--tomorrow) 
+            if [[ $2 =~ ^[0-9]+$ ]]; then # handle `-t N` case
+                t_f=$2
+                shift
+            elif [[ $1 =~ -[t]* ]]; then # handle `-ttt...t` case
+                t_ff="$1"
+                t_f=$((${#t_ff}-1))
+            else
+                echo "error: -t require valid number"
+                exit 1
+            fi
+            date=$(date -d "$t_f day" +%Y-%m-%d)
+            if [[ ! $date =~ $valid_date_regex ]]; then
+                echo "error: $date is not in a valid date range"
+                exit 1
+            elif [[ $date == -* ]]; then
+                echo "error: $date couldn't be negative value"
+                exit 1
             fi
             shift
             ;;
         -d|--date)
+            date="$2"
             if [[ -z $2 ]]; then
                 echo "error: -d require additional argv (date)"
                 exit 1
-            elif [[ ! $2 =~ $valid_date_regex ]]; then
+            elif [[ ! $date =~ $valid_date_regex ]]; then
                 echo "error: $2 is not in a valid date range"
                 exit 1
+            elif [[ $date == -* ]]; then
+                echo "error: $date couldn't be negative value"
+                exit 1
             fi
-            date="$2"
             shift
             shift
             ;;
@@ -219,7 +261,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-# backup option
+# backup option handler
 if [[ ${backup} == true ]]; then
     # create a copy of $MEMO to $MEMO_BACKUP_DIR 
     memo_hiccup_name="$(basename ${MEMO%.*})_$(date +%Y%m%dt%H%M%S).${MEMO##*.}.bak"
@@ -233,11 +275,12 @@ if [[ ${backup} == true ]]; then
     fi
 fi 
 
+# the core program
 # find a insertion point. if not found, create one.
 date=${date:-${today}}
 inserted_line=$(get_insertion_line $date)
 
-# transfer options
+# fetch from memo_temp, fectch options handler
 if [[ ${transfer} == "true" ]]; then
     # inserted $MEMO_TEMP content to $MEMO on $inserted_line
     sed -i -e "${inserted_line}r ${MEMO_TEMP}" -e "${inserted_line}a\\\\" ${MEMO}
@@ -251,3 +294,4 @@ if [[ -n ${message} && -n ${inserted_line} ]]; then
     sed -i "${inserted_line}i\\${message}" ${MEMO}
     ${verbose} && echo "memo: insert \`${message}\` to \`${MEMO}\` on line \`${inserted_line}\`"
 fi
+
