@@ -82,6 +82,11 @@ memo -l
 memo -l -d DATE          # add under DATE header
 memo --long
 ```
+enable verbose logging mode
+```shell
+memo -v
+memo --verbose
+```
 print help
 ```shell
 memo -h
