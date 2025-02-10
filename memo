@@ -22,6 +22,7 @@
 #     
 #     memo -f                            fetch message from temporary memo to memo 
 #     memo -b                            make a backup of memo (and memo_temp too, if -f flag is on) 
+#     memo -l                            open a temporary scratch pad for long form writing
 #
 # cautions:
 #     depending on your env, the content of message to be put using cli may not
@@ -38,8 +39,8 @@
 MEMO_DIR="${MEMO_DIR:-.}" # must be set, always
 MEMO="${MEMO:-${MEMO_DIR}/memo.md}" # must be set, always
 MEMO_TEMP="${MEMO_TEMP:-${MEMO_DIR}/memo_temp.md}" # must be set only if -t flag enable
-MEMO_BACKUP_DIR="${MEMO_BACKUP_DIR:-${MEMO_DIR}/.local/share/memo/}" # must be set only if -b flag is enable
-EDITOR=${EDITOR:-vi} # vi, nvim, nano, notepad etc.
+MEMO_BACKUP_DIR="${MEMO_BACKUP_DIR:-${MEMO_DIR}/memo_backup}" # must be set only if -b flag is enable
+EDITOR=${EDITOR:-vi} # vi, vim, nvim, nano, notepad etc.
 
 # initial flag
 transfer=false
@@ -192,6 +193,10 @@ while [[ $# -gt 0 ]]; do
             verbose=true
             shift
             ;;
+        -l|--long)
+            long_form=true
+            shift
+            ;;
         -[y]*|--yesterday) 
             if [[ $2 =~ ^[0-9]+$ ]]; then # handle `-y N` case
                 y_f=$2
@@ -290,7 +295,7 @@ fi
 date=${date:-${today}}
 inserted_line=$(get_insertion_line $date)
 
-# fetch from memo_temp, fectch options handler
+# fetch from memo_temp, fetch options handler
 if [[ ${transfer} == "true" ]]; then
     # inserted $MEMO_TEMP content to $MEMO on $inserted_line
     sed -i -e "${inserted_line}r ${MEMO_TEMP}" -e "${inserted_line}a\\\\" ${MEMO}
@@ -299,6 +304,19 @@ if [[ ${transfer} == "true" ]]; then
 fi
 
 # long form memo
+if [[ ${long_form} == "true" ]]; then
+    check_dir_usuable "${MEMO_BACKUP_DIR}"
+    # create a temp file in backup dir
+    temp_scratch_pad="${MEMO_BACKUP_DIR}/.temp_memo.txt"
+    touch "${temp_scratch_pad}"
+    # open editor in that file
+    ${EDITOR} ${temp_scratch_pad}
+    sed -i -e "${inserted_line}r ${temp_scratch_pad}" -e "${inserted_line}a\\\\" ${MEMO}
+    # rm temp file
+    rm "${temp_scratch_pad}"
+    ${verbose} && echo "memo: insert long form content to \`${MEMO}\`"
+fi
+
 
 # finally add message if user provided one
 if [[ -n ${message} && -n ${inserted_line} ]]; then
