@@ -10,6 +10,8 @@ i read somewhere about an idea of keeping all of your (+ other) idea, thought, j
 - the rest of header type (3H, 4H, 5H, and 6H) will be freely available for you to use
 - new entry begin at the top, pushing down the old one.
 - by default, if no target date specified, the memo will inserted its message under `today` header
+- the script will automatically insert the date under the date header if specified
+- the inserted date header will be inserted on the line where it suppose to
 
 ## installation
 make file executable by changing permission
