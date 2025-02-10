@@ -2,37 +2,6 @@
 
 # memo: obtf (one big text file) style logging/journaling script
 # credit: Soulmine (@ne1nene1)
-#
-# install:
-#     chmod +x memo                      make file executable  
-#     mv memo /path/to/your/bin          move to you path or
-#     alias memo="/path/to/this/script"  add alias to your shell config# 
-#
-# usage:
-#     memo                               initialize memo 
-#     memo                               open memo in editor 
-# 
-#     memo -m "hi earth"                 add message to memo to today (-m can be ommited) 
-#     memo -y "hello world"              add message to memo about yesterday 
-#     memo -y 7 "i walked a dog"         add message to memo about last week 
-#     memo -yyy "i hate monday"          add message to memo about 3 days before 
-#     memo -t "meeting with mom"         add message to memo about tomorrow 
-#     memo -t 30 "i hate valentine"      add message to memo about the next 30 days 
-#     memo -tttt "has to walk a dog"     add message to memo about the next 4 days 
-#     
-#     memo -f                            fetch message from temporary memo to memo 
-#     memo -b                            make a backup of memo (and memo_temp too, if -f flag is on) 
-#     memo -l                            open a temporary scratch pad for long form writing
-#
-# cautions:
-#     depending on your env, the content of message to be put using cli may not
-#     contain some special character reserved by your shell such as !," etc.
-#
-#     `-yy 3` will be intreprete as `three days ago (-y N format)` not 
-#     `two days ago (-yyy...y)`, this is also the same as -t flag.
-#     this means that if you ommited quote to insert a message, that message
-#     mustn't start with number
-#
 # please feel free to edit this script to your liking!
 
 # default value
@@ -75,6 +44,7 @@ print_help() {
     echo "  -d, --date          change target header to DATE header (in YYYY-MM-DD format)"
     echo "  -m, --message       add message to target header"
     echo "                      by default, any argument after all OPTION will be the added message"
+    echo "  -l, --long          open scratch pad for long form writing"
     echo "  -f, --fetch         fetch message from \$MEMO_TEMP to \$MEMO to target header"
     echo "                      the content inside \$MEMO_TEMP will be erased as a result"
     echo "  -b, --backup        make a copy of both \$MEMO (and \$MEMO_TEMP if -t enable) to \$MEMO_BACKUP_DIR"
