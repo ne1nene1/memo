@@ -11,7 +11,7 @@ i read somewhere about an idea of keeping all of your (+ other) idea, thought, j
 - new entry begin at the top, pushing down the old one.
 - by default, if no target date specified, the memo will inserted its message under `today` header
 - the script will automatically insert the date under the date header if specified
-- the inserted date header will be inserted on the line where it suppose to
+- the inserted date header will be inserted appropriately 
 
 ## installation
 make file executable by changing permission
