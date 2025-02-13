@@ -1,9 +1,6 @@
 # memo
 obtf (one big text file) style logging/journaling script
 
-## background
-I read somewhere about an idea of keeping all of your (and other's) idea, thought, journal, and possibly project, essay, and other long-form writing in one single text file. It's ridiculous, but it was too interesting for me to not to try it. While in the end, I did end up split my notes into more atomic, I still use this idealogy of "keeping one's thought in a single text file" to quickly writing thing down. It is amazingly liberating when you didnt't have to think where your idea went, all you need is `ctrl+f` and a good tagging/linking system (haha, "good"). Anyway, that's why I wrote this script. I didn't know anything about bash scripting until i wrote this script. It was a ride of trial and error, but in the end, I learned so much about this language (and why people trying to avoid it, lol). 
-
 ## structure
 - memo file will only have one 1H header, `# memo` follow by separator `---` and a new line. 
 - all 2H header, will be a date in `yyyy-dd-mm` format that surrounded by wikilink.
@@ -27,12 +24,15 @@ or add alias to your shell config
 alias memo="/path/to/this/script"
 ```
 
-by default `memo` will use current working directory as a place where it will find a file. you can change this behavior by editing a script or changing MEMO_DIR to the path you'd like to keep your file.
+by default `memo` will use current working directory as a place where it will
+find a file. you can change this behavior by editing a script or changing
+MEMO_DIR to the path you'd like to keep your file.
 ```shell
 export MEMO_DIR="path/to/keep/a/file"
 ```
-on first execution, it will check whether there is a `memo.md` file in MEMO_DIR. if didn't find one, it will create one for you
-note: you can change file name and extension in the script directly
+on first execution, it will check whether there is a `memo.md` file in
+MEMO_DIR. if didn't find one, it will create one for you note: you can
+change file name and extension in the script directly
 
 ## usage
 open memo in editor
@@ -96,10 +96,13 @@ memo --help
 ```
 
 ## cautions
-- depending on your environment, the content of your messages to be put using cli may not contain some special character reserved by your shell such as !,",?,~ etc.
-- `-yy 3` will be intreprete as `three days ago (as in -y N format)` not `two days ago (as in -yyy...y formt)`, this is also the same as -t flag.
+- depending on your environment, the content of your messages to be put using
+cli may not contain some special character reserved by your shell such as
+!,",?,~ etc. - `-yy 3` will be intreprete as `three days ago (as in -y N
+format)` not `two days ago (as in -yyy...y formt)`, this is also the same
+as -t flag.
      this means that if you ommited quote to insert a message, that message
-     mustn't start with number
+      mustn't start with number
 
 ## author
 @ne1nene (Soulmine) [github](https://github.com/ne1nene1/)
