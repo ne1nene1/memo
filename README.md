@@ -11,11 +11,11 @@ Obtf (one big text file) style logging/journaling script.
 - Date header will be inserted where it would make sense chronologically .
 
 ## Installation
-Clone repository and make the script executable...
+Clone repository and make the script executable.
 ```shell
 $ chmod +x ./memo
 ```
-...or move to your path...
+Move script to your path...
 ```shell
 $ mv memo /path/to/your/bin
 ```
@@ -114,4 +114,5 @@ $ memo -yy "10 eggs, 5 cheese bought total"   # add "10 eggs, 5 cheese bought to
 
 ## Author
 @ne1nene (Soulmine) [github](https://github.com/ne1nene1/)
+
 
