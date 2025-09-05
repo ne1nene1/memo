@@ -17,7 +17,7 @@ $ chmod +x ./memo
 ```
 Move script to your path...
 ```shell
-$ mv memo /path/to/your/bin
+$ mv memo /path/to/your/bin/memo
 ```
 ...or create an alias.
 ```shell
@@ -114,5 +114,6 @@ $ memo -yy "10 eggs, 5 cheese bought total"   # add "10 eggs, 5 cheese bought to
 
 ## Author
 @ne1nene (Soulmine) [github](https://github.com/ne1nene1/)
+
 
 
